@@ -325,6 +325,7 @@ void vcpu_init(struct vm *vm, struct vcpu *vcpu)
 	}
 }
 
+
 int run_vm(struct vm *vm, struct vcpu *vcpu, size_t sz)
 {
 	struct kvm_regs regs;
@@ -347,14 +348,47 @@ int run_vm(struct vm *vm, struct vcpu *vcpu, size_t sz)
 			goto check;
 
 		case KVM_EXIT_IO:
-			if (vcpu->kvm_run->io.direction == KVM_EXIT_IO_OUT
-			    && vcpu->kvm_run->io.port == 0xE9) {
-				char *p = (char *)vcpu->kvm_run;
-				count = count+1;
-				fwrite(p + vcpu->kvm_run->io.data_offset,
-				       vcpu->kvm_run->io.size, 1, stdout);
-				fflush(stdout);
-				continue;
+			switch(vcpu->kvm_run->io.port)
+			{
+				/***For character I/O***/
+				case 0xE9:
+					if (vcpu->kvm_run->io.direction == KVM_EXIT_IO_OUT)
+					{
+						char *p = (char *)vcpu->kvm_run;
+						count = count+1;
+						//Data offset contains io data 
+						fwrite(p + vcpu->kvm_run->io.data_offset,
+				       		vcpu->kvm_run->io.size, 1, stdout);
+						fflush(stdout);
+						continue;
+					}
+					if (vcpu->kvm_run->io.direction == KVM_EXIT_IO_IN)
+					{
+						char *s = (char *)vcpu->kvm_run;
+						int *val = (int*)(s + vcpu->kvm_run->io.data_offset);
+						*val = 0x21;
+						continue;
+					}
+					break;
+				/*** For integer I/O **/
+				case 0xEA:
+					if (vcpu->kvm_run->io.direction == KVM_EXIT_IO_OUT)
+					{
+						char *p = (char *)vcpu->kvm_run;
+						count = count+1;
+						//Data offset contains io data 
+						printf("%d \n",*(p + vcpu->kvm_run->io.data_offset));
+						continue;
+					}
+					if (vcpu->kvm_run->io.direction == KVM_EXIT_IO_IN)
+					{
+						char *s = (char *)vcpu->kvm_run;
+						int *val = (int*)(s + vcpu->kvm_run->io.data_offset);
+						*val = 0x21;
+						continue;
+					}
+				default:
+					break;
 			}
 
 			/* fall through */
@@ -366,8 +400,7 @@ int run_vm(struct vm *vm, struct vcpu *vcpu, size_t sz)
 		}
 	}
 
-	fprintf(stdout,"Number of times EXIT IO called = %d",count);
-	fflush(stdout);
+
 
  check:
 	if (ioctl(vcpu->fd, KVM_GET_REGS, &regs) < 0) {
@@ -386,7 +419,7 @@ int run_vm(struct vm *vm, struct vcpu *vcpu, size_t sz)
 		       (unsigned long long)memval);
 		return 0;
 	}
-
+	printf("Number of times EXIT IO called = %d \n",count);
 	return 1;
 }
 
@@ -573,16 +606,24 @@ static void setup_long_mode(struct vm *vm, struct kvm_sregs *sregs)
 
 	*/
 
+	/*
+
+	In the x86-64 computer architecture, long mode is the mode where a 64-bit operating system can 
+	access 64-bit instructions and registers. 64-bit programs are run in a sub-mode called 64-bit mode, 
+	while 32-bit programs and 16-bit protected mode programs are executed in a sub-mode called 
+	compatibility mode.Real mode or virtual 8086 mode programs cannot be natively run in long mode.
+	*/
 
 
+	//Page table has 4 levels
 
-	uint64_t pml4_addr = 0x2000;
+	uint64_t pml4_addr = 0x2000; //Page map level 4
 	uint64_t *pml4 = (void *)(vm->mem + pml4_addr);
 
-	uint64_t pdpt_addr = 0x3000;
+	uint64_t pdpt_addr = 0x3000;  //Page directory pointer table
 	uint64_t *pdpt = (void *)(vm->mem + pdpt_addr);
 
-	uint64_t pd_addr = 0x4000;
+	uint64_t pd_addr = 0x4000; //Page directory table
 	uint64_t *pd = (void *)(vm->mem + pd_addr);
 
 	pml4[0] = PDE64_PRESENT | PDE64_RW | PDE64_USER | pdpt_addr;
@@ -590,7 +631,10 @@ static void setup_long_mode(struct vm *vm, struct kvm_sregs *sregs)
 	pd[0] = PDE64_PRESENT | PDE64_RW | PDE64_USER | PDE64_PS;
 
 	sregs->cr3 = pml4_addr;
-	sregs->cr4 = CR4_PAE;
+	sregs->cr4 = CR4_PAE; 
+	// when phsical address extension is enabled via the CR4_PAE flag, 
+	//the page size is treated as 2MB, and the last 21 bits are used to index into the pgdir. 
+
 	sregs->cr0
 		= CR0_PE | CR0_MP | CR0_ET | CR0_NE | CR0_WP | CR0_AM | CR0_PG;
 	sregs->efer = EFER_LME | EFER_LMA;
@@ -610,6 +654,7 @@ int run_long_mode(struct vm *vm, struct vcpu *vcpu)
 
 	*/
 	printf("Testing 64-bit mode\n");
+	printf("This is the LONG MODE\n");
 
         if (ioctl(vcpu->fd, KVM_GET_SREGS, &sregs) < 0) {
 		perror("KVM_GET_SREGS");
@@ -641,8 +686,11 @@ int run_long_mode(struct vm *vm, struct vcpu *vcpu)
 
 	/*
 	need to copy our machine code into memory of vm
+	 At what (guest virtual) address does the guest start execution when it runs? 
+	 Where is this address configured?
 	*/
 	memcpy(vm->mem, guest64, guest64_end-guest64);
+
 	return run_vm(vm, vcpu, 8);
 }
 
