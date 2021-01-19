@@ -63,6 +63,9 @@
 #define PDE64_PS (1U << 7)
 #define PDE64_G (1U << 8)
 
+/*Added by Ankita for guest memory mapping extraction*/
+#define EXTRACT_GUEST 0x000000ff
+
 /*
 * INFO ABOUT ioctl COMMAND
 * Second answer of the following link:
@@ -348,6 +351,7 @@ int run_vm(struct vm *vm, struct vcpu *vcpu, size_t sz)
 			goto check;
 
 		case KVM_EXIT_IO:
+			count = count+1;
 			switch(vcpu->kvm_run->io.port)
 			{
 				/***For character I/O***/
@@ -355,7 +359,6 @@ int run_vm(struct vm *vm, struct vcpu *vcpu, size_t sz)
 					if (vcpu->kvm_run->io.direction == KVM_EXIT_IO_OUT)
 					{
 						char *p = (char *)vcpu->kvm_run;
-						count = count+1;
 						//Data offset contains io data 
 						fwrite(p + vcpu->kvm_run->io.data_offset,
 				       		vcpu->kvm_run->io.size, 1, stdout);
@@ -375,18 +378,45 @@ int run_vm(struct vm *vm, struct vcpu *vcpu, size_t sz)
 					if (vcpu->kvm_run->io.direction == KVM_EXIT_IO_OUT)
 					{
 						char *p = (char *)vcpu->kvm_run;
-						count = count+1;
 						//Data offset contains io data 
-						printf("%d \n",*(p + vcpu->kvm_run->io.data_offset));
+						printf("Value = %d \n",*(p + vcpu->kvm_run->io.data_offset));
 						continue;
 					}
 					if (vcpu->kvm_run->io.direction == KVM_EXIT_IO_IN)
 					{
 						char *s = (char *)vcpu->kvm_run;
 						int *val = (int*)(s + vcpu->kvm_run->io.data_offset);
-						*val = 0x21;
+						/*** Pass the value from hypervisor here ***/
+						*val = 0x21; 
 						continue;
 					}
+				break;
+				/*** Return number of exit calls to guest ***/
+				case 0xEB:
+					if (vcpu->kvm_run->io.direction == KVM_EXIT_IO_IN)
+					{
+						char *s = (char *)vcpu->kvm_run;
+						int *val = (int*)(s + vcpu->kvm_run->io.data_offset);
+						/*** Pass the value from hypervisor here ***/
+						*val = count; 
+						continue;
+					}
+				break;
+				/*** Print entire string using just one call ***/
+				case 0xEC:
+					if (vcpu->kvm_run->io.direction == KVM_EXIT_IO_OUT)
+					{
+						char *p = (char *)vcpu->kvm_run;
+						//char *val = (char*)(p + vcpu->kvm_run->io.data_offset);
+						//Data offset contains io data 
+						//printf("Value = %d \n",((vm->mem)+val));
+						uint32_t addr = *(p + vcpu->kvm_run->io.data_offset);
+						//int addro = *(p + vcpu->kvm_run->io.data_offset);
+						printf("The string is : %s \n",&(vm->mem[addr&EXTRACT_GUEST]));
+						continue;
+					}
+				break;
+
 				default:
 					break;
 			}
@@ -413,13 +443,16 @@ int run_vm(struct vm *vm, struct vcpu *vcpu, size_t sz)
 		return 0;
 	}
 
+	//char *str;
 	memcpy(&memval, &vm->mem[0x400], sz);
+	//memcpy(&str, &vm->mem[0x400], sz);
+	//printf("%s",str);
 	if (memval != 42) {
 		printf("Wrong result: memory at 0x400 is %lld\n",
 		       (unsigned long long)memval);
 		return 0;
 	}
-	printf("Number of times EXIT IO called = %d \n",count);
+	printf("Total number of times EXIT IO called = %d \n",count);
 	return 1;
 }
 

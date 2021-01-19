@@ -1,6 +1,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+
 /*
 	This C function outb takes two arguments, a port number and a value. 
 	Note that the x86 EAX and EDX registers are conventionally used to hold arguments for 
@@ -29,6 +30,21 @@ void printVal(uint32_t val)
 	outb(0xEA,val);
 }
 
+/*The function getNumExists() should return the number of exits incurred by the guest since it started.*/
+/****************** getNumExists *********************/
+uint32_t getNumExits()
+{
+	uint32_t val = inb(0xEB);
+	return val;
+}
+
+/*The function display(const char *str) should print the argument string to the screen via a hypercall*/
+/***************** display(const char *str) **************/
+void display(const char *str)
+{
+	outb(0xEC,((uintptr_t)str));
+}
+
 void
 __attribute__((noreturn))
 __attribute__((section(".start")))
@@ -47,10 +63,32 @@ _start(void) {
 		hypervisor code. The hypervisor checks the reason for the exit and handles it accordingly.
 	*/
 	
+	/* For printing 32 bit value passed, port used = 0xE9*/
 	uint32_t val = inb(0xE9); 
 	printVal(val);
 
+	/* Calculating number of exits */
+	uint32_t numExits = getNumExits();
+	printVal(numExits);
+
+	/* Passing entire string in one go */
+	char * const strng = "Ankita is here ";
+	char * const test = "I am coding this at 9:00pm";
+
 	*(long *) 0x400 = 42;
+	display(strng); //1 call for this
+	numExits = getNumExits(); //1 call for this
+	printVal(numExits);	//1 call for this
+	display(test);
+	numExits = getNumExits();
+	printVal(numExits);
+
+
+
+
+	
+
+	
 	/*
 		In the x86 computer architecture, HLT (halt) is an assembly language instruction 
 		which halts the central processing unit (CPU) until the next external interrupt is fired.
