@@ -45,6 +45,53 @@ void display(const char *str)
 	outb(0xEC,((uintptr_t)str));
 }
 
+/***************** FILE SYSTEM CALLS *************************/
+
+/* This function will open a file and return the file descriptor */
+static uint32_t open_file(const char *str) 
+{
+    outb(0xED,((uintptr_t)str));
+    uint8_t ret_val = inb(0xED);
+	return ret_val;
+}
+
+/* This function will read a file given file descriptor and copy contents to a buffer */
+static void read_file(uint32_t file_Desc, uint32_t numbytes, uint32_t *buffer) 
+{
+	/* Creating an array of pointers to store the info */
+	/* Pass address of this array to the hypervisor*/
+
+    uint32_t *file_info;
+    file_info[0] = file_Desc;
+    file_info[1] = (uintptr_t) buffer;
+    file_info[2] = numbytes;
+
+    outb(0xEE,((uintptr_t)file_info));
+}
+
+/* This function will write to a file given file descriptor and copy contents to a buffer */
+static void write_file(uint32_t file_Desc, uint32_t nbytes, uint32_t *buffer) 
+{
+
+    uint32_t *file_info;
+    file_info[0] = file_Desc;
+    file_info[1] = (uintptr_t) buffer;
+    file_info[2] = nbytes;
+
+    outb(0xEF,((uintptr_t)file_info));
+}
+
+/* This function will write to a file given file descriptor and copy contents to a buffer */
+static void seek_file(uint32_t file_Desc, uint32_t index) 
+{
+    uint32_t *file_info;
+    file_info[0] = file_Desc;
+    file_info[1] = index;
+
+    outb(0xF0,((uintptr_t)file_info));
+}
+
+
 void
 __attribute__((noreturn))
 __attribute__((section(".start")))
@@ -62,7 +109,9 @@ _start(void) {
 		Once the above instruction is executed by the guest, it causes an exit into the
 		hypervisor code. The hypervisor checks the reason for the exit and handles it accordingly.
 	*/
-	
+
+	/* ***************** PRINT & DISPLAY VALUES ****************/
+
 	/* For printing 32 bit value passed, port used = 0xE9*/
 	uint32_t val = inb(0xE9); 
 	printVal(val);
@@ -72,23 +121,58 @@ _start(void) {
 	printVal(numExits);
 
 	/* Passing entire string in one go */
-	char * const strng = "Ankita is here ";
-	char * const test = "I am coding this at 9:00pm";
+	// char * const strng1 = "Ankita is here ";
+	// char * const strng2 = "I am coding this at 9:00am";
+
+	// /* Print string 1 and the number of calls before and after*/
+	// display(strng1); //1 call for this
+	// numExits = getNumExits(); //1 call for this
+	// printVal(numExits);	//1 call for this
+
+	// /* Print string 2 and the number of calls before and after*/
+	// display(strng2);
+	// numExits = getNumExits();
+	// printVal(numExits);
+
+	/* ********************** FILE OPERATIONS ****************** */
+
+	/********** Open file and return file descriptor *************/
+
+	char * const testFile = "test.txt";
+    uint32_t file_descp = open_file(testFile);
+    printVal(file_descp);
+
+
+	/******** Read file and display the contents ******************/
+
+	char read_buffer[16];
+    read_file(file_descp, 10, (uint32_t *)read_buffer);
+    display(read_buffer);
+
+	/**************** Write to a file *******************************/
+
+	/* Opening another file*/
+	// char * const testFile1 = "test1.txt";
+    // uint32_t file_descp1 = open_file(testFile1);
+    // printVal(file_descp1);
+
+	// char *write_buffer = "Ankita is working here";
+	// const char *ptr;
+
+	// int len =0;
+	// for (ptr = write_buffer; *ptr; ++ptr,++len);
+	// write_file(file_descp1, (uint32_t)len, (uint32_t*)&write_buffer[0]);
+
+	/*********** Performing seeks ****************************/
+	int loc =3;
+	seek_file(file_descp, loc);
+
+	char read_buff[10];
+	read_file(file_descp, 4, read_buffer);
+    display(read_buff);
+	
 
 	*(long *) 0x400 = 42;
-	display(strng); //1 call for this
-	numExits = getNumExits(); //1 call for this
-	printVal(numExits);	//1 call for this
-	display(test);
-	numExits = getNumExits();
-	printVal(numExits);
-
-
-
-
-	
-
-	
 	/*
 		In the x86 computer architecture, HLT (halt) is an assembly language instruction 
 		which halts the central processing unit (CPU) until the next external interrupt is fired.
