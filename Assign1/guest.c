@@ -54,41 +54,41 @@ static uint32_t open_file(const char *str)
     uint8_t ret_val = inb(0xED);
 	return ret_val;
 }
-
+ 
 /* This function will read a file given file descriptor and copy contents to a buffer */
 static void read_file(uint32_t file_Desc, uint32_t numbytes, uint32_t *buffer) 
 {
 	/* Creating an array of pointers to store the info */
 	/* Pass address of this array to the hypervisor*/
 
-    uint32_t *file_info;
-    file_info[0] = file_Desc;
-    file_info[1] = (uintptr_t) buffer;
-    file_info[2] = numbytes;
+    uint32_t *file_info_read;
+    file_info_read[0] = file_Desc;
+    file_info_read[1] = (uintptr_t) buffer;
+    file_info_read[2] = numbytes;
 
-    outb(0xEE,((uintptr_t)file_info));
+    outb(0xEE,((uintptr_t)file_info_read));
 }
 
 /* This function will write to a file given file descriptor and copy contents to a buffer */
 static void write_file(uint32_t file_Desc, uint32_t numbytes, uint32_t *buffer) 
 {
 
-    uint32_t *file_info;
-    file_info[0] = file_Desc;
-    file_info[1] = (uintptr_t) buffer;
-    file_info[2] = numbytes;
+    uint32_t *file_info_write;
+    file_info_write[0] = file_Desc;
+    file_info_write[1] = (uintptr_t) buffer;
+    file_info_write[2] = numbytes;
 
-    outb(0xEF,((uintptr_t)file_info));
+    outb(0xEF,((uintptr_t)file_info_write));
 }
 
 /* This function will write to a file given file descriptor and copy contents to a buffer */
 static void seek_file(uint32_t file_Desc, uint32_t index) 
 {
-    uint32_t *file_info;
-    file_info[0] = file_Desc;
-    file_info[1] = index;
+    uint32_t *file_info_seek;
+    file_info_seek[0] = file_Desc;
+    file_info_seek[1] = index;
 
-    outb(0xF0,((uintptr_t)file_info));
+    outb(0xF0,((uintptr_t)file_info_seek));
 }
 
 
@@ -99,8 +99,8 @@ _start(void) {
 	/************ INITIAL HELLO WORLD CODE *******************/
 	const char *p;
 
-	for (p = "Hello, world!\n"; *p; ++p)
-		outb(0xE9, *p);
+	// for (p = "Hello, world!\n"; *p; ++p)
+	// 	outb(0xE9, *p);
 	
 	
 	/************END OF HELLO WORLD CODE *********************/
@@ -120,57 +120,51 @@ _start(void) {
 	uint32_t numExits = getNumExits();
 	printVal(numExits);
 
-	/* Passing entire string in one go */
-	// char * const strng1 = "Ankita is here ";
-	// char * const strng2 = "I am coding this at 9:00am";
+	// /* Passing entire string in one go */
+	char * const strng1 = "Hello";
 
-	// /* Print string 1 and the number of calls before and after*/
-	// display(strng1); //1 call for this
-	// numExits = getNumExits(); //1 call for this
-	// printVal(numExits);	//1 call for this
-
-	// /* Print string 2 and the number of calls before and after*/
-	// display(strng2);
-	// numExits = getNumExits();
-	// printVal(numExits);
+	/* Print string 1 and the number of calls before and after*/
+	display(strng1); //1 call for this
+	numExits = getNumExits(); //1 call for this
+	printVal(numExits);	//1 call for this
+	
 
 	/* ********************** FILE OPERATIONS ****************** */
 
 	/********** Open file and return file descriptor *************/
 
-	char * const testFile = "test.txt";
+	char * const testFile = "t.txt";
     uint32_t file_descp = open_file(testFile);
-    printVal(file_descp);
+    //printVal(file_descp);
 
 
 	/******** Read file and display the contents ******************/
 
-	char read_buffer[16];
+	char *read_buffer;
     read_file(file_descp, 10, (uint32_t *)read_buffer);
     display(read_buffer);
 
 	/**************** Write to a file *******************************/
 
-	/* Opening another file*/
-	// char * const testFile1 = "test1.txt";
-    // uint32_t file_descp1 = open_file(testFile1);
-    // printVal(file_descp1);
+	/* Writing to the same file */
 
-	// char *write_buffer = "Ankita is working here";
-	// const char *ptr;
+	char *write_buffer = "She codes";
+	const char *ptr;
 
-	// int len =0;
-	// for (ptr = write_buffer; *ptr; ++ptr,++len);
-	// write_file(file_descp1, (uint32_t)len, (uint32_t*)&write_buffer[0]);
+	int len =0;
+	for (ptr = write_buffer; *ptr; ++ptr,++len);
+	write_file(file_descp, (uint32_t)len, (uint32_t*)&write_buffer[0]);
 
 	/*********** Performing seeks ****************************/
+
+	/* Seek the contents of the above file from location =loc*/
+
 	int loc =3;
 	seek_file(file_descp, loc);
 
-	char read_buff[10];
-	read_file(file_descp, 4, read_buffer);
-    display(read_buff);
-	
+	char *read_buff;
+	read_file(file_descp, 4, (uint32_t *)read_buff);
+	display(read_buff);
 
 	*(long *) 0x400 = 42;
 	/*

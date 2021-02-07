@@ -65,6 +65,7 @@
 
 /*Added by Ankita for guest memory mapping extraction*/
 #define EXTRACT_GUEST 0x000000ff
+#define TEMP 0x00000fff
 
 /*
 * INFO ABOUT ioctl COMMAND
@@ -381,7 +382,7 @@ int run_vm(struct vm *vm, struct vcpu *vcpu, size_t sz)
 					{
 						char *p = (char *)vcpu->kvm_run;
 						//Data offset contains io data 
-						printf("Value = %d \n",*(p + vcpu->kvm_run->io.data_offset));
+						printf("\nExit I/O calls till now / Integer printing = %d \n",*(p + vcpu->kvm_run->io.data_offset));
 						continue;
 					}
 					if (vcpu->kvm_run->io.direction == KVM_EXIT_IO_IN)
@@ -409,11 +410,7 @@ int run_vm(struct vm *vm, struct vcpu *vcpu, size_t sz)
 					if (vcpu->kvm_run->io.direction == KVM_EXIT_IO_OUT)
 					{
 						char *p = (char *)vcpu->kvm_run;
-						//char *val = (char*)(p + vcpu->kvm_run->io.data_offset);
-						//Data offset contains io data 
-						//printf("Value = %d \n",((vm->mem)+val));
 						uint32_t addr = *(p + vcpu->kvm_run->io.data_offset);
-						//int addro = *(p + vcpu->kvm_run->io.data_offset);
 						printf("The string is : %s \n",&(vm->mem[addr&EXTRACT_GUEST]));
 						continue;
 					}
@@ -425,9 +422,10 @@ int run_vm(struct vm *vm, struct vcpu *vcpu, size_t sz)
 						char *p = (char *)vcpu->kvm_run;
 						uint32_t addr = *(p + vcpu->kvm_run->io.data_offset);
 						char *file = &(vm->mem[addr&EXTRACT_GUEST]);
-						printf("File name obtained = %s\n",file);
+						printf("\n********OPEN IS BEING PERFORMED************");
+						printf("\nFile name obtained = %s",file);
 						file_descp = open(file, O_CREAT | O_RDWR ,0777);
-						printf("File descriptor of opened file = %d\n",file_descp);
+						printf("\nFile descriptor of opened file -> %d",file_descp);
 						continue;
 					}
 					if (vcpu->kvm_run->io.direction == KVM_EXIT_IO_IN)
@@ -447,14 +445,10 @@ int run_vm(struct vm *vm, struct vcpu *vcpu, size_t sz)
 						char *p = (char *)vcpu->kvm_run;
 						uint32_t addr = *(p + vcpu->kvm_run->io.data_offset);
 						file_info = ((uint32_t*)&(vm->mem[addr&EXTRACT_GUEST]));
-						//char *s = file_info;
-						//printf("%s\n",s);
-						// printf("Read call : fd = %x, Num  bytes = %d\n", file_info[0], file_info[2]);
-						// printf("addr = 0x%x \n",addr);
-						// printf("%s %c \n", (file_info),(file_info[1]));
-						//printf("strng print op : %d\n",*((uint32_t*)file_info[0]));
-						int numbytes = read(file_info[0], &vm->mem[file_info[1]&EXTRACT_GUEST], file_info[2]);
-						printf("The string from file is = %s \n Num of bytes read = %d\n", &vm->mem[file_info[1]&EXTRACT_GUEST], numbytes);
+						printf("\n********READ IS BEING PERFORMED************");
+						printf("\nFile descriptor ->  %x, # of bytes-> %d\n", file_info[0], file_info[2]);
+						int numbytes = read(file_info[0], &(vm->mem[file_info[1]&EXTRACT_GUEST]), file_info[2]);
+						//printf("\nString from file obtained = %s \n Num of bytes read = %d\n", &(vm->mem[file_info[1]&EXTRACT_GUEST]), numbytes);
 						//close(file_info[0]);
 						continue;
 					}
@@ -467,11 +461,9 @@ int run_vm(struct vm *vm, struct vcpu *vcpu, size_t sz)
 						char *p = (char *)vcpu->kvm_run;
 						uint32_t addr = *(p + vcpu->kvm_run->io.data_offset);
 						file_info = ((uint32_t*)&(vm->mem[addr&EXTRACT_GUEST]));
-						printf("Write code starts here \n");
-						printf("Write call : fd = %d, string = %s, bytes = %d\n", file_info[0],&vm->mem[file_info[1]&EXTRACT_GUEST], file_info[2]);
-						printf("addr = 0x%x \n",addr);
-                        int ret = write(file_info[0], &vm->mem[file_info[1]&EXTRACT_GUEST], file_info[2]);
-						printf ("write returned = %d",ret);
+						printf("\n********WRITE IS BEING PERFORMED************");
+						printf("\nFile descriptor -> %d, String to be written = %s, Num of bytes written = %d\n", file_info[0],&vm->mem[file_info[1]&EXTRACT_GUEST], file_info[2]);
+                        int ret = write(file_info[0], &(vm->mem[file_info[1]&EXTRACT_GUEST]), file_info[2]);
 						continue;
 					}
 				break;
@@ -484,7 +476,8 @@ int run_vm(struct vm *vm, struct vcpu *vcpu, size_t sz)
 						char *p = (char *)vcpu->kvm_run;
 						uint32_t addr = *(p + vcpu->kvm_run->io.data_offset);
 						file_info = ((uint32_t*)&(vm->mem[addr&EXTRACT_GUEST]));
-                        printf("\n seek call : fd = %d, offset = %d\n", file_info[0], file_info[1]);
+						printf("\n********SEEK IS BEING PERFORMED************");
+                        printf("\n File descriptor -> %d, offset = %d\n", file_info[0], file_info[1]);
                         lseek(file_info[0], file_info[1], SEEK_SET);
 						continue;
 					}
