@@ -70,13 +70,13 @@ static void read_file(uint32_t file_Desc, uint32_t numbytes, uint32_t *buffer)
 }
 
 /* This function will write to a file given file descriptor and copy contents to a buffer */
-static void write_file(uint32_t file_Desc, uint32_t nbytes, uint32_t *buffer) 
+static void write_file(uint32_t file_Desc, uint32_t numbytes, uint32_t *buffer) 
 {
 
     uint32_t *file_info;
     file_info[0] = file_Desc;
     file_info[1] = (uintptr_t) buffer;
-    file_info[2] = nbytes;
+    file_info[2] = numbytes;
 
     outb(0xEF,((uintptr_t)file_info));
 }

@@ -470,7 +470,6 @@ int run_vm(struct vm *vm, struct vcpu *vcpu, size_t sz)
 						printf("Write code starts here \n");
 						printf("Write call : fd = %d, string = %s, bytes = %d\n", file_info[0],&vm->mem[file_info[1]&EXTRACT_GUEST], file_info[2]);
 						printf("addr = 0x%x \n",addr);
-                        //printf("Received to Write: fd = %d, No. of bytes = %d, Buffer = %s\n", fileDesArray[0], fileDesArray[2], &vm->mem[fileDesArray[1]]);
                         int ret = write(file_info[0], &vm->mem[file_info[1]&EXTRACT_GUEST], file_info[2]);
 						printf ("write returned = %d",ret);
 						continue;
