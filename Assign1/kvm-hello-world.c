@@ -139,7 +139,7 @@ void vm_init(struct vm *vm, size_t mem_size)
 		fprintf(stderr, "Got KVM api version %d, expected %d\n",
 			api_ver, KVM_API_VERSION);
 		exit(1);
-	}
+	} 
 	/* 
 		Next, we need to create a virtual machine (VM), which represents everything 
 		associated with one emulated system, including memory and one or more CPUs.
@@ -724,7 +724,7 @@ static void setup_long_mode(struct vm *vm, struct kvm_sregs *sregs)
 
 	pml4[0] = PDE64_PRESENT | PDE64_RW | PDE64_USER | pdpt_addr;
 	pdpt[0] = PDE64_PRESENT | PDE64_RW | PDE64_USER | pd_addr;
-	pd[0] = PDE64_PRESENT | PDE64_RW | PDE64_USER | PDE64_PS;
+	pd[0] = PDE64_PRESENT | PDE64_RW | PDE64_USER | PDE64_PS; //<- because of these 
 
 	sregs->cr3 = pml4_addr;
 	sregs->cr4 = CR4_PAE; 

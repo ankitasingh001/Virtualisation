@@ -121,7 +121,7 @@ _start(void) {
 	printVal(numExits);
 
 	// /* Passing entire string in one go */
-	char * const strng1 = "Hello";
+	char * strng1 = "Hello There!";
 
 	/* Print string 1 and the number of calls before and after*/
 	display(strng1); //1 call for this
@@ -132,11 +132,10 @@ _start(void) {
 	/* ********************** FILE OPERATIONS ****************** */
 
 	/********** Open file and return file descriptor *************/
-
 	char * const testFile = "t.txt";
+	strng1 ="t.txt";
     uint32_t file_descp = open_file(testFile);
     //printVal(file_descp);
-
 
 	/******** Read file and display the contents ******************/
 
@@ -148,12 +147,12 @@ _start(void) {
 
 	/* Writing to the same file */
 
-	char *write_buffer = "She codes";
+	//char *write_buffer = "She codes";
 	const char *ptr;
-
+	strng1 = "This is ankita. Writing this to the file";
 	int len =0;
-	for (ptr = write_buffer; *ptr; ++ptr,++len);
-	write_file(file_descp, (uint32_t)len, (uint32_t*)&write_buffer[0]);
+	for (ptr = strng1; *ptr; ++ptr,++len);
+	write_file(file_descp, (uint32_t)len, (uint32_t*)&strng1[0]);
 
 	/*********** Performing seeks ****************************/
 
@@ -162,9 +161,9 @@ _start(void) {
 	int loc =3;
 	seek_file(file_descp, loc);
 
-	char *read_buff;
-	read_file(file_descp, 4, (uint32_t *)read_buff);
-	display(read_buff);
+	//char *read_buff;
+	read_file(file_descp, 4, (uint32_t *)strng1);
+	display(strng1);
 
 	*(long *) 0x400 = 42;
 	/*
