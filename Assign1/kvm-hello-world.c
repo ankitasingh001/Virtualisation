@@ -65,6 +65,7 @@
 
 /*Added by Ankita for guest memory mapping extraction*/
 #define EXTRACT_GUEST 0x000000ff
+#define TEMP 0x00000fff
 
 /*
 * INFO ABOUT ioctl COMMAND
@@ -138,7 +139,7 @@ void vm_init(struct vm *vm, size_t mem_size)
 		fprintf(stderr, "Got KVM api version %d, expected %d\n",
 			api_ver, KVM_API_VERSION);
 		exit(1);
-	}
+	} 
 	/* 
 		Next, we need to create a virtual machine (VM), which represents everything 
 		associated with one emulated system, including memory and one or more CPUs.
@@ -334,6 +335,8 @@ int run_vm(struct vm *vm, struct vcpu *vcpu, size_t sz)
 	struct kvm_regs regs;
 	uint64_t memval = 0;
 	int count=0;
+	int file_descp =0;
+	uint32_t *file_info;
 
 	for (;;) {
 
@@ -379,7 +382,7 @@ int run_vm(struct vm *vm, struct vcpu *vcpu, size_t sz)
 					{
 						char *p = (char *)vcpu->kvm_run;
 						//Data offset contains io data 
-						printf("Value = %d \n",*(p + vcpu->kvm_run->io.data_offset));
+						printf("\nExit I/O calls till now / Integer printing = %d \n",*(p + vcpu->kvm_run->io.data_offset));
 						continue;
 					}
 					if (vcpu->kvm_run->io.direction == KVM_EXIT_IO_IN)
@@ -407,16 +410,78 @@ int run_vm(struct vm *vm, struct vcpu *vcpu, size_t sz)
 					if (vcpu->kvm_run->io.direction == KVM_EXIT_IO_OUT)
 					{
 						char *p = (char *)vcpu->kvm_run;
-						//char *val = (char*)(p + vcpu->kvm_run->io.data_offset);
-						//Data offset contains io data 
-						//printf("Value = %d \n",((vm->mem)+val));
 						uint32_t addr = *(p + vcpu->kvm_run->io.data_offset);
-						//int addro = *(p + vcpu->kvm_run->io.data_offset);
 						printf("The string is : %s \n",&(vm->mem[addr&EXTRACT_GUEST]));
 						continue;
 					}
 				break;
+				/*** Open file call ***/
+				case 0xED:
+					if (vcpu->kvm_run->io.direction == KVM_EXIT_IO_OUT)
+					{
+						char *p = (char *)vcpu->kvm_run;
+						uint32_t addr = *(p + vcpu->kvm_run->io.data_offset);
+						char *file = &(vm->mem[addr&EXTRACT_GUEST]);
+						printf("\n********OPEN IS BEING PERFORMED************");
+						printf("\nFile name obtained = %s",file);
+						file_descp = open(file, O_CREAT | O_RDWR ,0777);
+						printf("\nFile descriptor of opened file -> %d",file_descp);
+						continue;
+					}
+					if (vcpu->kvm_run->io.direction == KVM_EXIT_IO_IN)
+					{
+						char *s = (char *)vcpu->kvm_run;
+						int *val = (int*)(s + vcpu->kvm_run->io.data_offset);
+						/*** Pass the value of file desciptor from hypervisor here ***/
+						*val = file_descp; 
+						continue;
+					}
+				break;
 
+				/** File read call **/
+				case 0xEE:
+					if (vcpu->kvm_run->io.direction == KVM_EXIT_IO_OUT)
+					{
+						char *p = (char *)vcpu->kvm_run;
+						uint32_t addr = *(p + vcpu->kvm_run->io.data_offset);
+						file_info = ((uint32_t*)&(vm->mem[addr&EXTRACT_GUEST]));
+						printf("\n********READ IS BEING PERFORMED************");
+						printf("\nFile descriptor ->  %x, # of bytes-> %d\n", file_info[0], file_info[2]);
+						int numbytes = read(file_info[0], &(vm->mem[file_info[1]&EXTRACT_GUEST]), file_info[2]);
+						//printf("\nString from file obtained = %s \n Num of bytes read = %d\n", &(vm->mem[file_info[1]&EXTRACT_GUEST]), numbytes);
+						//close(file_info[0]);
+						continue;
+					}
+				break;
+
+				/** File write call **/
+				case 0xEF:
+					if (vcpu->kvm_run->io.direction == KVM_EXIT_IO_OUT)
+					{
+						char *p = (char *)vcpu->kvm_run;
+						uint32_t addr = *(p + vcpu->kvm_run->io.data_offset);
+						file_info = ((uint32_t*)&(vm->mem[addr&EXTRACT_GUEST]));
+						printf("\n********WRITE IS BEING PERFORMED************");
+						printf("\nFile descriptor -> %d, String to be written = %s, Num of bytes written = %d\n", file_info[0],&vm->mem[file_info[1]&EXTRACT_GUEST], file_info[2]);
+                        int ret = write(file_info[0], &(vm->mem[file_info[1]&EXTRACT_GUEST]), file_info[2]);
+						continue;
+					}
+				break;
+
+
+				/** File seek call **/
+				case 0xF0:
+					if (vcpu->kvm_run->io.direction == KVM_EXIT_IO_OUT)
+					{
+						char *p = (char *)vcpu->kvm_run;
+						uint32_t addr = *(p + vcpu->kvm_run->io.data_offset);
+						file_info = ((uint32_t*)&(vm->mem[addr&EXTRACT_GUEST]));
+						printf("\n********SEEK IS BEING PERFORMED************");
+                        printf("\n File descriptor -> %d, offset = %d\n", file_info[0], file_info[1]);
+                        lseek(file_info[0], file_info[1], SEEK_SET);
+						continue;
+					}
+				break;
 				default:
 					break;
 			}
@@ -443,10 +508,8 @@ int run_vm(struct vm *vm, struct vcpu *vcpu, size_t sz)
 		return 0;
 	}
 
-	//char *str;
 	memcpy(&memval, &vm->mem[0x400], sz);
-	//memcpy(&str, &vm->mem[0x400], sz);
-	//printf("%s",str);
+
 	if (memval != 42) {
 		printf("Wrong result: memory at 0x400 is %lld\n",
 		       (unsigned long long)memval);
@@ -661,7 +724,7 @@ static void setup_long_mode(struct vm *vm, struct kvm_sregs *sregs)
 
 	pml4[0] = PDE64_PRESENT | PDE64_RW | PDE64_USER | pdpt_addr;
 	pdpt[0] = PDE64_PRESENT | PDE64_RW | PDE64_USER | pd_addr;
-	pd[0] = PDE64_PRESENT | PDE64_RW | PDE64_USER | PDE64_PS;
+	pd[0] = PDE64_PRESENT | PDE64_RW | PDE64_USER | PDE64_PS; //<- because of these 
 
 	sregs->cr3 = pml4_addr;
 	sregs->cr4 = CR4_PAE; 
@@ -671,6 +734,10 @@ static void setup_long_mode(struct vm *vm, struct kvm_sregs *sregs)
 	sregs->cr0
 		= CR0_PE | CR0_MP | CR0_ET | CR0_NE | CR0_WP | CR0_AM | CR0_PG;
 	sregs->efer = EFER_LME | EFER_LMA;
+
+	//To enable syscall (for file handling) ,setting up 
+	sregs->efer |= EFER_SCE ; 
+
 
 	setup_64bit_code_segment(sregs);
 }
