@@ -10,7 +10,7 @@ import struct
 # if len(sys.argv) != 3:
 #     print("ERROR: Usage: python3 Seed.py <Seed IP> <Seed port>")
 #     exit(1)
-IPAddr = "10.0.1.0"
+IPAddr = "0.0.0.0"
 peer_list = []
 socket_list = []
 port = int(10001)

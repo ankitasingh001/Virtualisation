@@ -28,6 +28,14 @@ void make_cgroup_rule(const char* cgroup_path, const char* val) {
   close(fileptr);
 } 
 
+int TRY(int status, const char *msg) {
+ if(status == -1) {  
+    perror(msg); 
+    exit(EXIT_FAILURE);
+ }
+ return status;
+}
+
 /**
  *  Setting Cgroup parameters
  * */
@@ -41,66 +49,71 @@ void set_cgroup_params() {
 
   const char* pid  = std::to_string(getpid()).c_str();
 
-  make_cgroup_rule(concat(PID_CGROUP, "pids.max"), "7"); 
+  make_cgroup_rule(concat(PID_CGROUP, "pids.max"), "15"); 
   make_cgroup_rule(concat(PID_CGROUP, "notify_on_release"), "1"); 
   make_cgroup_rule(concat(PID_CGROUP, "cgroup.procs"), pid);
 
   /* uncomment below lines to show memory limits */
 
-//   make_cgroup_rule(concat(CPU_CGROUP, "cpu.cfs_quota_us"), "4000");
-//   make_cgroup_rule(concat(CPU_CGROUP, "cpu.cfs_period_us"), "10000");
-//   make_cgroup_rule(concat(CPU_CGROUP, "cpu.shares"), "320");
-//   make_cgroup_rule(concat(CPU_CGROUP, "notify_on_release"), "1"); 
-//   make_cgroup_rule(concat(CPU_CGROUP, "cgroup.procs"), pid);
-//   make_cgroup_rule(concat(MEMORY_CGROUP, "memory.limit_in_bytes"),"10000");
-//   make_cgroup_rule(concat(MEMORY_CGROUP, "memory.swappiness"),"0");
-//   make_cgroup_rule(concat(MEMORY_CGROUP, "notify_on_release"), "1"); 
-//   make_cgroup_rule(concat(MEMORY_CGROUP, "cgroup.procs"), pid);
+  // make_cgroup_rule(concat(CPU_CGROUP, "cpu.cfs_quota_us"), "40000");
+  // make_cgroup_rule(concat(CPU_CGROUP, "cpu.cfs_period_us"), "100000");
+  // make_cgroup_rule(concat(CPU_CGROUP, "cpu.shares"), "320");
+  // make_cgroup_rule(concat(CPU_CGROUP, "notify_on_release"), "1"); 
+  // make_cgroup_rule(concat(CPU_CGROUP, "cgroup.procs"), pid);
+  // make_cgroup_rule(concat(MEMORY_CGROUP, "memory.limit_in_bytes"),"10000000");
+  // make_cgroup_rule(concat(MEMORY_CGROUP, "memory.swappiness"),"0");
+  // make_cgroup_rule(concat(MEMORY_CGROUP, "notify_on_release"), "1"); 
+  // make_cgroup_rule(concat(MEMORY_CGROUP, "cgroup.procs"), pid);
 
 }
+
+
+
+int set_status(int s, const char *msg) {
+ if(s == -1) {  
+    perror(msg); 
+    exit(EXIT_FAILURE);
+ }
+ return s;
+}
+
+int run(const char *n) {
+  char *_args[] = {(char *)n, (char *)0 };
+  execvp(n, _args);
+}
+
+
+
 
 char* stack_size() 
 {
-  const int Size = 98765;
+  const int Size = 58765;
   auto *mystack = new (std::nothrow) char[Size];
-  if (mystack == nullptr) { 
+  if (mystack == nullptr) 
+  { 
     printf("Memory allocation failed\n");
     exit(EXIT_FAILURE);
   }  
-  return mystack+Size; //Stack size grows backward
+  return mystack+Size; 
 }
-
-
-/**
- * Run shell
- * */
-int run_shell(const char *param) {
-
-  char *_args[] = {(char *)param, (char *)0 };
-  execvp(param, _args);
-}
-
 
 template <typename Function>
-
-void call_clone(Function&& function, int flags)
-{
- /**
-  * Call clone and set child_pid to process id of the cloned process
-  * */
-  auto child_pid = clone(function, stack_size(), flags, 0);
-  if(child_pid == -1) {  
-      perror("Clone function call failed"); 
-      exit(EXIT_FAILURE);
-  }
-  printf("child pid as seen by parent: %d\n", child_pid);
+void call_clone(Function&& function, int flags){
+ auto pid = TRY( clone(function, stack_size(), flags, 0), "clone" );
+  printf("child pid as seen by parent: %d\n", pid);
 
   // add route to parent
   system("ip -n vnet0 route add 10.0.2.1 dev veth0");
   printf("route added from parent to child!\n");
-
-  wait(nullptr); 
+ wait(nullptr); 
 } 
+
+
+
+
+
+
+
 
  
 int child_process(void *args) {
@@ -132,7 +145,7 @@ int child_process(void *args) {
   printf("HERE IN CHILD");
 
 
-  auto runnable = lambda(run_shell("/bin/sh"))
+  auto runnable = lambda(run("/bin/sh"))
 
   printf("\n Child Namespace:\n");
 
